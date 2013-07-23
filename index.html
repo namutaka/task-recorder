@@ -7,13 +7,16 @@
 <meta name="description" content="">
 <script src="js/jquery-1.7.1.min.js"></script>
 <script src="js/knockout-2.3.0.js"></script>
+<script src="js/knockout.mapping-latest.js"></script>
 <script>
+  var DEBUG = false;
   $(function() {
     function Record(title, begin, end) {
       var self = this;
       this.title = ko.observable(title);
-      this.begin = ko.observable(begin);
-      this.end = ko.observable(end);
+      this.begin = ko.observable(begin ? new Date(begin) : null);
+      this.end = ko.observable(end ? new Date(end) : null);
+
       this.date = ko.computed(function() {
         if (!self.begin()) { return null; }
         return self.begin().toLocaleDateString();
@@ -27,65 +30,106 @@
         return self.end().toLocaleTimeString();
       });
       this.duration = ko.computed(function() {
-        return Math.round(
-          ((self.end() - self.begin()) / 1000) / 60 / 60.0
-          * 100) / 100.0;
+        if (!self.end()) { return null; }
+        return format(
+          (self.end() - self.begin()) / 1000 / 60 / 60.0
+          , 3);
       });
+
+      this.enable = ko.computed(function() {
+        return !self.end();
+      });
+
+      function format(val, numeric) {
+        var dig = Math.pow(10, numeric);
+        var numStr = (Math.round(val * dig) / dig) + "";
+        var dotPos = numStr.indexOf('.');
+        if (dotPos < 0) { numStr += "."; dotPos = numStr.length;}
+        numStr += new Array(numeric - (numStr.length - dotPos) + 1).join("0");
+        return numStr;
+      }
     }
 
-    function AppViewModel(tasklist) {
+    function AppViewModel() {
       var self = this;
-      this.editing = ko.observable(false);
-      this.currentRecord = ko.observable(null);
-      this.tasklistText = ko.observable(tasklist);
-      this.records = ko.observableArray([]);
+      this.tasklistText = ko.observable(localStorage["tasklistText"]);
+      this.records = loadRecords();
+
+      this.editing = ko.observable(this.tasklistText() == null);
 
       this.today = ko.computed(function() {
         return new Date().toLocaleDateString();
       });
 
       this.current = ko.computed(function() {
-        return self.currentRecord() || new Record();
+        var records = self.records();
+        var record = records[records.length - 1];
+        return (record && record.enable()) ? record : new Record();
       });
 
       this.tasks = ko.computed(function() {
         var tasks = [];
-        $.each(self.tasklistText().split("\n"), function(i, taskTitle) {
+        $.each((self.tasklistText() || "").split("\n"), function(i, taskTitle) {
           taskTitle = $.trim(taskTitle);
           if(taskTitle.length > 0) {
             tasks.push({title: taskTitle,
               isActive: (taskTitle == self.current().title())});
           }
         });
-        console.log(tasks);
         return tasks;
       });
 
       this.editTask = function() {
         self.editing(true);
-      }
+      };
 
       this.saveTask = function() {
         self.editing(false);
-      }
+        localStorage["tasklistText"] = self.tasklistText();
+      };
 
       this.choose = function(task) {
-        var record = self.currentRecord();
-        if (record != null) {
+        var record = self.current();
+        if (record.enable()) {
           record.end(new Date());
-          self.records.push(record);
+
+          saveRecords();
         }
 
         if (record == null || record.title() !== task.title) {
           var newRecord = new Record(task.title, new Date(), null);
-          self.currentRecord(newRecord);
-        } else {
-          self.currentRecord(null);
+          self.records.push(newRecord);
         }
+      };
+
+      this.reset = function() {
+        self.records.removeAll();
+        saveRecord();
+      };
+
+      function saveRecords() {
+        var recordJson = ko.toJSON(
+          ko.utils.arrayMap(self.records(), function(r) {
+            return {title: r.title, begin: r.begin, end: r.end};
+          }));
+
+        DEBUG && console.log(recordJson);
+        localStorage["record"] = recordJson;
       }
+
+      function loadRecords() {
+        var recordJson = localStorage["record"];
+        var records = ko.utils.arrayMap(JSON.parse(recordJson||"[]"),
+          function(r) {
+            return new Record(r.title, r.begin, r.end);
+          });
+        DEBUG && console.log(records);
+        return ko.observableArray(records);
+      }
+
     }
 
-    ko.applyBindings(new AppViewModel("aa"));
+    ko.applyBindings(new AppViewModel());
   });
 </script>
 <style>
@@ -138,10 +182,11 @@ textarea {
   <div class="operation">
     <button type="button" data-bind="visible: !editing(), click: editTask">Edit</button>
     <button type="button" data-bind="visible: editing, click: saveTask">Save</button>
+    <button type="button" data-bind="click: reset">Reset Records</button>
   </div>
   <h3 class="todayDate" data-bind="text: today"></h3>
 
-  <h3 class="currentTask" data-bind="visible: currentRecord() != null">
+  <h3 class="currentTask" data-bind="visible: current().enable()">
     <span class="title" data-bind="text: current().title" ></span>
     <span class="begin" data-bind="text: current().beginTime" ></span>
   </h3>
