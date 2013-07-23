@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>Task Recorder</title>
+<meta name="keywords" content="">
+<meta name="description" content="">
+<script src="js/jquery-1.7.1.min.js"></script>
+<script src="js/knockout-2.3.0.js"></script>
+<script>
+  $(function() {
+    function Record(title, begin, end) {
+      var self = this;
+      this.title = ko.observable(title);
+      this.begin = ko.observable(begin);
+      this.end = ko.observable(end);
+      this.date = ko.computed(function() {
+        if (!self.begin()) { return null; }
+        return self.begin().toLocaleDateString();
+      });
+      this.beginTime = ko.computed(function() {
+        if (!self.begin()) { return null; }
+        return self.begin().toLocaleTimeString();
+      });
+      this.endTime = ko.computed(function() {
+        if (!self.end()) { return null; }
+        return self.end().toLocaleTimeString();
+      });
+      this.duration = ko.computed(function() {
+        return Math.round(
+          ((self.end() - self.begin()) / 1000) / 60 / 60.0
+          * 100) / 100.0;
+      });
+    }
+
+    function AppViewModel(tasklist) {
+      var self = this;
+      this.editing = ko.observable(false);
+      this.currentRecord = ko.observable(null);
+      this.tasklistText = ko.observable(tasklist);
+      this.records = ko.observableArray([]);
+
+      this.today = ko.computed(function() {
+        return new Date().toLocaleDateString();
+      });
+
+      this.current = ko.computed(function() {
+        return self.currentRecord() || new Record();
+      });
+
+      this.tasks = ko.computed(function() {
+        var tasks = [];
+        $.each(self.tasklistText().split("\n"), function(i, taskTitle) {
+          taskTitle = $.trim(taskTitle);
+          if(taskTitle.length > 0) {
+            tasks.push({title: taskTitle,
+              isActive: (taskTitle == self.current().title())});
+          }
+        });
+        console.log(tasks);
+        return tasks;
+      });
+
+      this.editTask = function() {
+        self.editing(true);
+      }
+
+      this.saveTask = function() {
+        self.editing(false);
+      }
+
+      this.choose = function(task) {
+        var record = self.currentRecord();
+        if (record != null) {
+          record.end(new Date());
+          self.records.push(record);
+        }
+
+        if (record == null || record.title() !== task.title) {
+          var newRecord = new Record(task.title, new Date(), null);
+          self.currentRecord(newRecord);
+        } else {
+          self.currentRecord(null);
+        }
+      }
+    }
+
+    ko.applyBindings(new AppViewModel("aa"));
+  });
+</script>
+<style>
+html, body {
+  font-size: 15px;
+  line-height: 1.5em;
+}
+.operation {
+  float: right;
+}
+h3 {
+  display: inline-block;
+  margin: 0;
+}
+.todayDate {
+  margin-right: 10px;
+}
+.currentTask .title {
+  padding-right: 10px;
+}
+textarea {
+  display: block;
+}
+.contents {
+  margin: 20px 0px;
+}
+.tasklist .task {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 1px solid #AAA;
+  background-color: #F8F8F8;
+  padding: 5px 10px;
+}
+.tasklist .task.active {
+  background-color: #FFF0F0;
+}
+.records {
+  margin: 10px 3px;
+  font-size: 80%;
+  line-height: 1em;
+}
+.records td {
+  padding: 2px 5px;
+}
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="operation">
+    <button type="button" data-bind="visible: !editing(), click: editTask">Edit</button>
+    <button type="button" data-bind="visible: editing, click: saveTask">Save</button>
+  </div>
+  <h3 class="todayDate" data-bind="text: today"></h3>
+
+  <h3 class="currentTask" data-bind="visible: currentRecord() != null">
+    <span class="title" data-bind="text: current().title" ></span>
+    <span class="begin" data-bind="text: current().beginTime" ></span>
+  </h3>
+</div>
+
+<div class="contents">
+  <div data-bind="visible: editing">
+    <textarea data-bind="value: tasklistText" cols="80" rows="20"></textarea>
+  </div>
+
+  <div data-bind="visible: !editing()">
+    <div class="tasklist" data-bind="foreach: tasks, visible: tasks().length > 0">
+      <button class="task" data-bind="click: $parent.choose,
+        text: title, css: {active: isActive}" />
+    </div>
+  </div>
+</div>
+
+<table class="records" data-bind="foreach: records">
+  <tr>
+    <td data-bind="text: date"></td>
+    <td data-bind="text: title"></td>
+    <td data-bind="text: beginTime"></td>
+    <td>-</td>
+    <td data-bind="text: endTime"></td>
+    <td data-bind="text: duration"></td>
+  </tr>
+</table>
+
+</body>
+</html>
