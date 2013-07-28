@@ -7,7 +7,6 @@
 <meta name="description" content="">
 <script src="js/jquery-1.7.1.min.js"></script>
 <script src="js/knockout-2.3.0.js"></script>
-<script src="js/knockout.mapping-latest.js"></script>
 <script>
   var DEBUG = false;
   $(function() {
@@ -147,8 +146,9 @@ h3 {
 .todayDate {
   margin-right: 10px;
 }
-.currentTask .title {
-  padding-right: 10px;
+.currentTask {
+  display:block;
+  height: 2em;
 }
 textarea {
   display: block;
@@ -163,9 +163,15 @@ textarea {
   border: 1px solid #AAA;
   background-color: #F8F8F8;
   padding: 5px 10px;
+  color: #666;
+}
+.tasklist .task:hover {
+  background-color: #FF8080 !important;
+  color: #000;
 }
 .tasklist .task.active {
-  background-color: #FFF0F0;
+  background-color: #FFD0D0;
+  color: #000;
 }
 .records {
   margin: 10px 3px;
@@ -186,10 +192,10 @@ textarea {
   </div>
   <h3 class="todayDate" data-bind="text: today"></h3>
 
-  <h3 class="currentTask" data-bind="visible: current().enable()">
+  <div class="currentTask" data-bind="visible: current().enable()">
     <span class="title" data-bind="text: current().title" ></span>
     <span class="begin" data-bind="text: current().beginTime" ></span>
-  </h3>
+  </div>
 </div>
 
 <div class="contents">
