@@ -136,25 +136,41 @@ html, body {
   font-size: 15px;
   line-height: 1.5em;
 }
+.header {
+  position: fixed;
+  top: 0;
+  background: white;
+  left: 0;
+  right: 0;
+  padding: 3px 5px;
+  border-bottom: 1px solid gray;
+}
+
 .operation {
   float: right;
+  line-height: 1em;
 }
-h3 {
-  display: inline-block;
+.operation button {
+  font-size: 10px;
+  padding: 1px 3px;
   margin: 0;
+  background-color: #EEE;
+  border: 1px solid gray;
+}
+.datetime {
+  height: 18px;
 }
 .todayDate {
   margin-right: 10px;
 }
-.currentTask {
-  display:block;
-  height: 2em;
+.title {
+  height: 3em;
 }
 textarea {
   display: block;
 }
 .contents {
-  margin: 20px 0px;
+  margin: 75px 0 20px 0;
 }
 .tasklist .task {
   display: block;
@@ -190,12 +206,12 @@ textarea {
     <button type="button" data-bind="visible: editing, click: saveTask">Save</button>
     <button type="button" data-bind="click: reset">Reset Records</button>
   </div>
-  <h3 class="todayDate" data-bind="text: today"></h3>
 
-  <div class="currentTask" data-bind="visible: current().enable()">
-    <span class="title" data-bind="text: current().title" ></span>
-    <span class="begin" data-bind="text: current().beginTime" ></span>
+  <div class="datetime">
+    <span class="todayDate" data-bind="text: today"></span>
+    <span class="begin" data-bind="visible: current().enable(), text: current().beginTime" ></span>
   </div>
+  <div class="title" data-bind="visible: current().enable(), text: current().title" ></div>
 </div>
 
 <div class="contents">
@@ -216,7 +232,6 @@ textarea {
     <td data-bind="text: date"></td>
     <td data-bind="text: title"></td>
     <td data-bind="text: beginTime"></td>
-    <td>-</td>
     <td data-bind="text: endTime"></td>
     <td data-bind="text: duration"></td>
   </tr>
