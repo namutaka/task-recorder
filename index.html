@@ -88,17 +88,21 @@
       };
 
       this.choose = function(task) {
+        var record = self.finish();
+        if (record == null || record.title() !== task.title) {
+          var newRecord = new Record(task.title, new Date(), null);
+          self.records.push(newRecord);
+        }
+      };
+
+      this.finish = function() {
         var record = self.current();
         if (record.enable()) {
           record.end(new Date());
 
           saveRecords();
         }
-
-        if (record == null || record.title() !== task.title) {
-          var newRecord = new Record(task.title, new Date(), null);
-          self.records.push(newRecord);
-        }
+        return record;
       };
 
       this.reset = function() {
@@ -128,7 +132,11 @@
 
     }
 
-    ko.applyBindings(new AppViewModel());
+    var vm = new AppViewModel()
+    ko.applyBindings(vm);
+    window.onbeforeunload = function() {
+      vm.finish();
+    };
   });
 </script>
 <style>
