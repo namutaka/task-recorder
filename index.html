@@ -53,17 +53,36 @@
       var self = this;
       this.tasklistText = ko.observable(localStorage["tasklistText"]);
       this.records = loadRecords();
+      this.trigger = ko.observable(true);
 
-      this.editing = ko.observable(this.tasklistText() == null);
+      this.mode = ko.observable(this.tasklistText() == null ? 'edit': 'task');
 
       this.today = ko.computed(function() {
         return new Date().toLocaleDateString();
       });
 
+      this.dayRecords = function(day) {
+        self.trigger();
+        self.records[day] = self.records[day] || [];
+        return self.records[day];
+      };
+
       this.current = ko.computed(function() {
-        var records = self.records();
+        self.trigger();
+        var records = self.dayRecords(self.today());
         var record = records[records.length - 1];
         return (record && record.enable()) ? record : new Record();
+      });
+
+      this.days = ko.computed(function() {
+        self.trigger();
+        var keys = [];
+        for(var i in self.records) {
+          if (self.records.hasOwnProperty(i)) {
+            keys.push(i);
+          }
+        }
+        return keys;
       });
 
       this.tasks = ko.computed(function() {
@@ -79,11 +98,19 @@
       });
 
       this.editTask = function() {
-        self.editing(true);
+        self.mode('edit');
+      };
+
+      this.toggleRecord = function() {
+        if (self.mode() == 'task') {
+          self.mode('record');
+        } else if (self.mode() == 'record') {
+          self.mode('task');
+        }
       };
 
       this.saveTask = function() {
-        self.editing(false);
+        self.mode('task');
         localStorage["tasklistText"] = self.tasklistText();
       };
 
@@ -91,7 +118,9 @@
         var record = self.finish();
         if (record == null || record.title() !== task.title) {
           var newRecord = new Record(task.title, new Date(), null);
-          self.records.push(newRecord);
+          var day = newRecord.date();
+          self.dayRecords(day).push(newRecord);
+          self.trigger(!self.trigger());
         }
       };
 
@@ -99,6 +128,7 @@
         var record = self.current();
         if (record.enable()) {
           record.end(new Date());
+          self.trigger(!self.trigger());
 
           saveRecords();
         }
@@ -111,10 +141,13 @@
       };
 
       function saveRecords() {
-        var recordJson = ko.toJSON(
-          ko.utils.arrayMap(self.records(), function(r) {
-            return {title: r.title, begin: r.begin, end: r.end};
-          }));
+        var records = [];
+        $.each(self.records, function(i, day) {
+          $.each(day, function(j, r) {
+            records.push({title: r.title, begin: r.begin, end: r.end});
+          });
+        });
+        var recordJson = ko.toJSON(records);
 
         DEBUG && console.log(recordJson);
         localStorage["record"] = recordJson;
@@ -122,12 +155,16 @@
 
       function loadRecords() {
         var recordJson = localStorage["record"];
-        var records = ko.utils.arrayMap(JSON.parse(recordJson||"[]"),
+        var records = {};
+        ko.utils.arrayMap(JSON.parse(recordJson||"[]"),
           function(r) {
-            return new Record(r.title, r.begin, r.end);
+            var record = new Record(r.title, r.begin, r.end);
+            var day = record.date();
+            records[day] = records[day] || [];
+            records[day].push(record);
           });
         DEBUG && console.log(records);
-        return ko.observableArray(records);
+        return records;
       }
 
     }
@@ -210,40 +247,56 @@ textarea {
 <body>
 <div class="header">
   <div class="operation">
-    <button type="button" data-bind="visible: !editing(), click: editTask">Edit</button>
-    <button type="button" data-bind="visible: editing, click: saveTask">Save</button>
-    <button type="button" data-bind="click: reset">Reset Records</button>
+    <button type="button" data-bind="visible: mode() == 'task', click: editTask">Edit</button>
+    <button type="button" data-bind="visible: mode() == 'edit', click: saveTask">Save</button>
+    <!-- <button type="button" data-bind="click: reset">Reset Records</button> -->
+    <button type="button" data-bind="visible: mode() != 'edit', click: toggleRecord">Record</button>
   </div>
 
   <div class="datetime">
     <span class="todayDate" data-bind="text: today"></span>
-    <span class="begin" data-bind="visible: current().enable(), text: current().beginTime" ></span>
+    <span class="begin" data-bind="text: current().beginTime" ></span>
   </div>
-  <div class="title" data-bind="visible: current().enable(), text: current().title" ></div>
+  <div class="title" data-bind="text: current().title" ></div>
 </div>
 
 <div class="contents">
-  <div data-bind="visible: editing">
+  <div data-bind="visible: mode() == 'edit'">
     <textarea data-bind="value: tasklistText" cols="80" rows="20"></textarea>
   </div>
 
-  <div data-bind="visible: !editing()">
+  <div data-bind="visible: mode() == 'task'">
     <div class="tasklist" data-bind="foreach: tasks, visible: tasks().length > 0">
       <button class="task" data-bind="click: $parent.choose,
         text: title, css: {active: isActive}" />
     </div>
+    <div class="records" data-bind="with: today">
+      <table data-bind="foreach: $parent.dayRecords($data)">
+        <tr>
+          <td data-bind="text: title"></td>
+          <td data-bind="text: beginTime"></td>
+          <td data-bind="text: endTime"></td>
+          <td data-bind="text: duration"></td>
+        </tr>
+      </table>
+    </div>
+  </div>
+
+  <div data-bind="visible: mode() == 'record'">
+    <div class="records" data-bind="foreach: days">
+      <div data-bind="text: $data"></div>
+      <table data-bind="foreach: $parent.dayRecords($data)">
+        <tr>
+          <td data-bind="text: title"></td>
+          <td data-bind="text: beginTime"></td>
+          <td data-bind="text: endTime"></td>
+          <td data-bind="text: duration"></td>
+        </tr>
+      </table>
+    </div>
   </div>
 </div>
 
-<table class="records" data-bind="foreach: records">
-  <tr>
-    <td data-bind="text: date"></td>
-    <td data-bind="text: title"></td>
-    <td data-bind="text: beginTime"></td>
-    <td data-bind="text: endTime"></td>
-    <td data-bind="text: duration"></td>
-  </tr>
-</table>
 
 </body>
 </html>
